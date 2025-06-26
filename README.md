@@ -1,63 +1,29 @@
-## Como configurar Laravel, Nginx e Redis com Docker Compose
-## Passo 1 — Fazendo download do Projeto e instalando dependências
+# Como configurar Laravel, Nginx e Redis com Docker Compose
+## Passo 1 — Fazendo download do ambiente de desenvolvimento
 
-Primeiramente, verifique se você está no seu diretório home e faça uma cópia da versão mais recente do Projeto para um diretório chamado environment:
+Primeiramente faça uma cópia da versão mais recente do Projeto para um diretório chamado environment:
 
-    $ cd ~
-    $ git clone git@github.com:acarlosos/environment-php8.git environment-php8
+  $ git clone git@github.com:acarlosos/environment-php8.3.git environment
 
 Vá até o diretório environment:
 
-    $ cd ~/environment-php8
+  $ cd environment
 
-Vamos fazer uma cópia do arquivo .env-example para .env e inserir as configurações do banco de dados:
+Vamos fazer uma cópia do arquivo .env-example para .env:
 
-    $ cp .env-example .env
+  $ cp .env-example .env
 
-Hora de levantar os containers:
+Inserir as configurações do projeto:
 
-    $ docker-compose up -d
+  $ nano .env
+  ```
+  COMPOSE_PROJECT_NAME=lumen
+  COMPOSE_PROJECT_NAME=lumen
+  WEBSERVER_PORT=8091
+  WEBSERVER_PORT_SECURE=4491
+  REDIS_PORT=8901
+  ```
 
-Você pode conseferir se o containner subiu corretamento com o commando docker ps:
-
-    $ docker ps
-
-Acesse o container laravel-app:
-
-    $ docker exec -it CONTAINER_ID bash
-
-Em seguida vamos baixar o projeto Laravel
-
-    $ composer create-project laravel/laravel public
-
-Acesse a pasta do projeto public:
-
-    $ cd public
-
-## Passo 2 - Modificando as configurações do ambiente e executando os contêineres
-
-Você pode agora modificar o arquivo .env no contêiner app para incluir detalhes específicos sobre sua configuração.
-
-    $ nano .env
-
-Encontre o bloco que especifica o DB_CONNECTION e atualize-o para refletir as especificidades da sua configuração. Você modificará os seguintes campos:
-
-O DB_HOST será seu contêiner de banco de dados db.
-O DB_DATABASE será o banco de dados laravel.
-O DB_USERNAME será o nome de usuário que você usará para o seu banco de dados. Neste caso, vamos usar laraveluser.
-O DB_PASSWORD será a senha segura que você gostaria de usar para esta conta de usuário, vamos usar secret.
-
-```/var/www/.env```
-```
-DB_CONNECTION=mysql
-DB_HOST=project-db
-DB_PORT=3391
-DB_DATABASE=project
-DB_USERNAME=project
-DB_PASSWORD=secret
-```
-
-Salve suas alterações e saia do seu editor.
 
 Com todos os seus serviços definidos no seu arquivo docker-compose, você precisa emitir um único comando para iniciar todos os contêineres, criar os volumes e configurar e conectar as redes:
 
@@ -66,29 +32,55 @@ Com todos os seus serviços definidos no seu arquivo docker-compose, você preci
 Assim que o processo for concluído, utilize o comando a seguir para listar todos os contêineres em execução:
     $ docker ps
 
-Você verá o seguinte resultado com detalhes sobre seus contêineres do app, webserver e db:
+Você verá o seguinte resultado com detalhes sobre seus contêineres do lumen-app, lumen-webserver e lumen-redis:
 
-```Output```
+Você pode conseferir se o containner subiu corretamento com o commando docker ps:
+    ```$ docker ps```
+    ```Output```
+    ```
+    $ docker ps
+    CONTAINER ID   IMAGE              COMMAND                  CREATED          STATUS          PORTS                                         NAMES
+    ba4eef28c8c4   redis:alpine       "docker-entrypoint.s…"   26 seconds ago   Up 26 seconds   0.0.0.0:8901->6379/tcp                        lumen-redis
+    e8e25be0477d   laravel-app        "docker-php-entrypoi…"   26 seconds ago   Up 26 seconds   9000/tcp                                      lumen-app
+    06d93f86c67d   nginx:alpine       "/docker-entrypoint.…"   26 seconds ago   Up 26 seconds   0.0.0.0:8091->80/tcp, 0.0.0.0:4491->443/tcp   lumen-webserver
+    ```
+
+## Passo 2 — Clonando o projeto
+
+Em seguida vamos baixar o projeto Lumen dentro da pasta www
+
+    $ git clone git@github.com:plataforma-lumen-arsenal/Lumen.git .
+
+Você pode agora criar o arquivo .env na pasta www.
+
+    $ cd www
+    $ cp .env.example .env
+
+Encontre o bloco que especifica o DB_CONNECTION e DATABASE_URL atualize-o para refletir as especificidades da sua configuração. Você modificará os seguintes campos:
+
+O DB_CONNECTION a conexão a ser utilizada.
+O DATABASE_URL será a string de conexão do seu banco de dados.
 
 ```
-CONTAINER ID   IMAGE          COMMAND                  CREATED          STATUS          PORTS                                         NAMES
-ac05f1f4a3cf   mysql:8        "docker-entrypoint.s…"   49 seconds ago   Up 47 seconds   0.0.0.0:3306->3306/tcp, 33060/tcp             project-db
-bfd339517826   project-app    "docker-php-entrypoi…"   54 seconds ago   Up 51 seconds   9000/tcp                                      app
-8124d0d26a48   nginx:alpine   "/docker-entrypoint.…"   52 minutes ago   Up 52 minutes   0.0.0.0:8081->80/tcp, 0.0.0.0:4431->443/tcp   project-webserver
+DB_CONNECTION=pgsql
+DATABASE_URL=postgresql://postgres.heozkgkwpwwhpqftlzwq:738773Dag*@aws-0-sa-east-1.pooler.supabase.com:5432/postgres
 ```
+Salve suas alterações e saia do seu editor.
 
-Usaremos agora o docker-compose exec para definir a chave do aplicativo para o aplicativo Laravel.
+Usaremos agora o docker-compose exec para instalar os pacotes via composer e definir a chave do aplicativo para o aplicativo Laravel.
 Este comando gerará uma chave e a copiará para seu arquivo .env, garantindo que as sessões do seu usuário e os dados criptografados permaneçam seguros:
 
-    $ docker-compose exec app php artisan key:generate
+    $ docker-compose exec -it lumen-app bash
+    $ composer install
+    $ php artisan key:generate
 
 Para colocar essas configurações em um arquivo de cache, que irá aumentar a velocidade de carregamento do seu aplicativo, execute:
 
-    $ docker-compose exec app php artisan config:cache
+    $ php artisan config:cache
 
 Suas definições da configuração serão carregadas em /var/www/bootstrap/cache/config.php no contêiner.
 
-Como passo final, visite http://localhost:8081 no navegador.
+Como passo final, visite http://localhost:8091 no navegador.
 Você verá a seguinte página inicial para seu aplicativo Laravel:
 <img src="https://i.ibb.co/rxPRtp4/Home.png" >
 
